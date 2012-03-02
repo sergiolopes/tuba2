@@ -1,0 +1,17 @@
+html {
+	background: #e3e9ff;
+}
+
+body {
+	background: white;
+	border: 1px solid #bbb;
+	
+	-moz-box-shadow: 0 0 6px #aaa;
+	-webkit-box-shadow: 0 0 6px #aaa;
+	box-shadow: 0 0 6px #aaa;
+
+	margin: 30px auto;
+	padding: 55px;
+	position: relative;
+	width: 800px;
+}

@@ -1,0 +1,83 @@
+#!/bin/bash
+#
+# Tuba 2 by Sérgio
+#
+# Arguments:
+#    $1 => tuba2 book directory structure
+#    $2 => output filename
+
+# TODO check params
+DIR=$1
+OUTPUT=$2
+
+# Copy files
+TEMP=$(mktemp -d -t tuba2)
+cp -R "$1"/* "$TEMP"
+cp -R resources "$TEMP"
+
+echo DEBUG: Temp dir: $TEMP
+
+# Prepare chapters
+for chapter in "$TEMP"/chapter*.html; do
+	cat resources/html/include-top.html $chapter resources/html/include-bottom.html > tempfile
+	mv tempfile $chapter
+done
+
+# Prepare header and footer
+cat resources/html/include-header.html "$TEMP/header.html" resources/html/include-bottom.html > tempfile
+mv tempfile "$TEMP/header.html"
+
+cat resources/html/include-footer.html "$TEMP/footer.html" resources/html/include-bottom.html > tempfile
+mv tempfile "$TEMP/footer.html"
+
+# Run magic command
+# Args:
+#   $1 file
+#   $2 output
+#   $3 more flags (optional)
+function compile() {
+	wkhtmltopdf \
+		--header-html "$TEMP/header.html" --footer-html "$TEMP/footer.html" \
+		--page-size A4 --margin-bottom 15mm --margin-left 10mm  --margin-right 10mm --margin-top 15mm \
+		--print-media-type --disable-smart-shrinking --output-format pdf --encoding UTF-8 \
+		$3 "$1" "$2"
+}
+
+# Compile each chapter to know start page numbers
+total_pages=1 # FIXME it should be the exact number of toc pages. TODO calculate number of toc pages.
+new_chapters_start_in="|"
+
+for chapter in "$TEMP"/chapter*; do
+	compile $chapter $chapter.pdf
+	num_pgs=$(pdftk $chapter.pdf dump_data output | grep -i NumberOfPages | awk '{print $2}')
+
+	# TODO support right chapter start
+
+	new_chapters_start_in="${new_chapters_start_in}$((total_pages + 1))|"
+	total_pages=$((total_pages + num_pgs))
+done
+
+echo DEBUG: New chapters will start in pages $new_chapters_start_in
+
+# Regenerates book, header, footer with new variables
+cat resources/html/include-top.html > "$TEMP"/book.html
+echo "<script>var chaptersStarts = '${new_chapters_start_in}';</script>" >> "$TEMP"/book.html
+for chapter in "$TEMP"/chapter*.html; do
+	cat $chapter >> "$TEMP"/book.html
+done
+cat resources/html/include-bottom.html >> "$TEMP"/book.html
+
+# Regenerate header and footer
+cat resources/html/include-header.html "$TEMP/header.html" resources/html/include-bottom.html > tempfile
+echo "<script>var chaptersStarts = '${new_chapters_start_in}';</script>" >> tempfile
+mv tempfile "$TEMP/header.html"
+
+cat resources/html/include-footer.html "$TEMP/footer.html" resources/html/include-bottom.html > tempfile
+echo "<script>var chaptersStarts = '${new_chapters_start_in}';</script>" >> tempfile
+mv tempfile "$TEMP/footer.html"
+
+# Compile everything
+compile "$TEMP"/book.html $OUTPUT "--outline-depth 2 toc --toc-header-text Sumário --disable-dotted-lines --xsl-style-sheet resources/xslt/toc-sheet.xml"
+
+# Finalizes
+# rm -rf "$TEMP"

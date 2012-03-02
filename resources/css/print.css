@@ -1,0 +1,18 @@
+body {
+	width: 800px;
+}
+
+h1 { 
+	page-break-before: left; 
+	}
+	h1:first-child { 
+		page-break-before: avoid; 
+	}
+
+img {
+	page-break-inside: avoid;
+}
+
+@page :right {
+  margin-left: 2cm;
+}
